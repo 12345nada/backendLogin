@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.get("/")
 def root():
-    return {"message": "Server is running!"}
+    return {"message": "FastAPI Server is running!"}
 
 
 @router.post("/register")
