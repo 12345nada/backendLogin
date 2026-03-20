@@ -22,10 +22,6 @@ def root():
     return {"message": "FastAPI Server is running!"}
 
 
-# ─────────────────────────────────────────
-# Registration
-# ─────────────────────────────────────────
-
 @router.post("/register")
 async def register(data: RegisterModel, db: Session = Depends(get_db)):
 
@@ -36,12 +32,16 @@ async def register(data: RegisterModel, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already exists")
 
     new_user = create_user(db, data.username, data.email, data.password)
-
     code = OTPService.send_registration_otp(db, new_user)
-    await send_otp_email(new_user.email, code, purpose="registration")
+
+    try:
+        await send_otp_email(new_user.email, code, purpose="registration")
+    except Exception:
+        db.delete(new_user)
+        db.commit()
+        raise HTTPException(status_code=500, detail="Failed to send OTP email. Please try again.")
 
     return {"message": "Registered successfully. Check your email for the OTP."}
-
 
 @router.post("/verify-email")
 def verify_email(data: VerifyEmailModel, db: Session = Depends(get_db)):
@@ -60,9 +60,6 @@ def verify_email(data: VerifyEmailModel, db: Session = Depends(get_db)):
     return {"message": "Email verified successfully"}
 
 
-# ─────────────────────────────────────────
-# Login
-# ─────────────────────────────────────────
 
 @router.post("/login")
 def login(data: LoginModel, db: Session = Depends(get_db)):
@@ -85,9 +82,6 @@ def login(data: LoginModel, db: Session = Depends(get_db)):
     }
 
 
-# ─────────────────────────────────────────
-# Refresh Token
-# ─────────────────────────────────────────
 
 @router.post("/refresh")
 def refresh_token(data: RefreshTokenModel, db: Session = Depends(get_db)):
@@ -116,9 +110,7 @@ def refresh_token(data: RefreshTokenModel, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 
-# ─────────────────────────────────────────
-# Profile
-# ─────────────────────────────────────────
+
 
 @router.get("/profile")
 def profile(current_user: User = Depends(get_current_user)):
@@ -129,9 +121,7 @@ def profile(current_user: User = Depends(get_current_user)):
     }
 
 
-# ─────────────────────────────────────────
-# Password Reset
-# ─────────────────────────────────────────
+
 
 @router.post("/forgot-password")
 async def forgot_password(data: ForgotPasswordModel, db: Session = Depends(get_db)):
