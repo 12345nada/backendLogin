@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.database.session import get_db
-from app.crud.user import get_user
+from app.crud.user import get_user_by_email
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -24,7 +24,6 @@ def create_refresh_token(data: dict):
     to_encode.update({"exp": expire, "type": "refresh"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
-from app.crud.user import get_user, get_user_by_email
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -42,6 +41,7 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid token")
 
     user = get_user_by_email(db, email)
+
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
 
