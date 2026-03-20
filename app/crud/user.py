@@ -43,12 +43,15 @@ def authenticate_user(db: Session, username: str, password: str):
 
 def set_reset_code(db: Session, user: User):
 
-    code = str(random.randint(100000, 999999))
+    code = str(random.randint(1000, 9999))
 
     user.reset_code = code
     db.commit()
 
     return code
+
+def get_user_by_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()
 
 
 def update_password(db: Session, user: User, new_password: str):

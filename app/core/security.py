@@ -24,6 +24,7 @@ def create_refresh_token(data: dict):
     to_encode.update({"exp": expire, "type": "refresh"})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
+from app.crud.user import get_user, get_user_by_email
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -31,17 +32,20 @@ def get_current_user(
 ):
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username = payload.get("sub")
+        email = payload.get("sub")
         token_type = payload.get("type")
 
-        if username is None or token_type != "access":
+        if email is None or token_type != "access":
             raise HTTPException(status_code=401, detail="Invalid token")
 
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    user = get_user(db, username)
+    user = get_user_by_email(db, email)
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
+
+    if user.disabled:
+        raise HTTPException(status_code=403, detail="Account disabled")
 
     return user

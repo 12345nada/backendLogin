@@ -9,6 +9,7 @@ from app.core.security import create_access_token, create_refresh_token, get_cur
 from app.core.config import settings
 from app.models.user import User
 from app.crud.user import set_reset_code, update_password
+from app.crud.user import create_user, get_user, get_user_by_email, verify_password
 
 router = APIRouter()
 
@@ -30,63 +31,56 @@ def register(user: RegisterModel, db: Session = Depends(get_db)):
 
     return {"message": "User registered successfully"}
 
-#@router.post("/login")
-#def login(data: LoginModel, db: Session = Depends(get_db)):
- #   user = authenticate_user(db, data.username, data.password)
-
-  #  if not user:
-   #     raise HTTPException(status_code=401, detail="Invalid credentials")
-
-   # return {
-    #    "access_token": create_access_token({"sub": user.username}),
-      #  "refresh_token": create_refresh_token({"sub": user.username}),
-       # "token_type": "bearer"
-   # }
-
 @router.post("/login")
 def login(data: LoginModel, db: Session = Depends(get_db)):
-
     user = db.query(User).filter(User.email == data.email).first()
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid email")
+    if not user or not verify_password(data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if user.disabled:
+        raise HTTPException(status_code=403, detail="Account disabled")
 
     return {
         "access_token": create_access_token({"sub": user.email}),
-       # "refresh_token": create_refresh_token({"sub": user.email}),
-       # "token_type": "bearer"
+        "token_type": "bearer"
     }
+
 
 
 @router.post("/refresh")
 def refresh_token(data: RefreshTokenModel, db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(data.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username = payload.get("sub")
+        email = payload.get("sub")
         token_type = payload.get("type")
 
-        if username is None or token_type != "refresh":
+        if email is None or token_type != "refresh":
             raise HTTPException(status_code=401, detail="Invalid refresh token")
 
-        if not get_user(db, username):
+        user = get_user_by_email(db, email)
+        if not user:
             raise HTTPException(status_code=401, detail="User not found")
 
+        if user.disabled:
+            raise HTTPException(status_code=403, detail="Account disabled")
+
         return {
-            "access_token": create_access_token({"sub": username}),
-         #   "refresh_token": create_refresh_token({"sub": username}),
-          #  "token_type": "bearer"
+            "access_token": create_access_token({"sub": email}),
+            "token_type": "bearer"
         }
 
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
-
-
 @router.get("/profile")
 def profile(current_user: User = Depends(get_current_user)):
     return {
         "username": current_user.username,
+        "email": current_user.email,
         "message": "Authenticated successfully"
     }
+
+
 @router.post("/forgot-password")
 def forgot_password(data: ForgotPasswordModel, db: Session = Depends(get_db)):
 
