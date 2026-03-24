@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     MAIL_FROM: str
     MAIL_PORT: int
     MAIL_SERVER: str
+    REGISTER_SECRET: str
 
     class Config:
         env_file = ".env"
